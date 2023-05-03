@@ -2,7 +2,7 @@ const client = require('./client')
 const SALT_COUNT = 10;
 const bcrypt = require('bcrypt')
 
-async function createUser({ username, password, isAdmin }) {
+async function createUser({ email, username, password, isAdmin }) {
     const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}$/;
 
     // Validate password requirements
@@ -26,10 +26,10 @@ async function createUser({ username, password, isAdmin }) {
     try {
         const hashedPassword = await bcrypt.hash(password, SALT_COUNT);
         const { rows: [user] } = await client.query(`
-        INSERT INTO users(username,password, "isAdmin")
-        VALUES($1,$2,$3)
+        INSERT INTO users(email, username, password, "isAdmin")
+        VALUES($1,$2,$3,$4)
         RETURNING *;
-      `, [username, hashedPassword, isAdmin]);
+      `, [email,username, hashedPassword, isAdmin]);
 
         console.log(user)
 
@@ -77,6 +77,26 @@ async function getUserByUsername(username) {
         return user;
     } catch (error) {
         throw new Error('Cannot get user by Username');
+    }
+}
+
+async function getUserByEmail(username) {
+    try {
+        const { rows } = await client.query(`
+        SELECT * 
+        FROM users
+        WHERE email=$1
+      `, [email]);
+
+        if (rows.length === 0) {
+            throw new Error(`No user found with email: ${email}`);
+        }
+
+        const user = rows[0];
+        delete user.password;
+        return user;
+    } catch (error) {
+        throw new Error('Cannot get user by email');
     }
 }
 
@@ -167,6 +187,7 @@ module.exports = {
     createUser,
     getUserById,
     getUserByUsername,
+    getUserByEmail,
     updateUser,
     deleteUser
 };

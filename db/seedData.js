@@ -26,6 +26,7 @@ async function createTables() {
     await client.query(`
       CREATE TABLE users (
         id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
         username VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         "isAdmin" BOOLEAN DEFAULT false
@@ -59,9 +60,9 @@ async function createInitialUsers() {
   console.log("Starting to create users...");
   try {
     const usersToCreate = [
-      { username: "albert", password: "Bertie99", isAdmin: true },
-      { username: "sandra", password: "Sandra123!", isAdmin: false },
-      { username: "glamgal", password: "Glamgal123!", isAdmin: false }
+      { email:"cole@gmail.com", username: "albert", password: "Bertie99", isAdmin: true },
+      { email:"colee@gmail.com", username: "sandra", password: "Sandra123!", isAdmin: false },
+      { email:"coleee@gmail.com", username: "glamgal", password: "Glamgal123!", isAdmin: false }
     ];
 
     const createdUsers = [];
