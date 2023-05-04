@@ -62,6 +62,24 @@ async function getAllPosts() {
     }
 }
 
+async function getPostById(id) {
+    try {
+        const { rows } = await client.query(`
+        SELECT * 
+        FROM posts
+        WHERE id=$1 AND "isActive" = true;
+        `, [id])
+
+        if (!rows){
+            throw new Error(`Post with id:${id} not found`)
+        }
+
+        return rows
+    } catch (error) {
+        throw new Error('Failed to get post by id')
+    }
+}
+
 async function updatePost(id, updates) {
     const { name, description, price, image, contact, contact_backup, report_count, location, category, isActive } = updates;
     const { rows: [listing] } = await client.query(`
@@ -97,6 +115,7 @@ async function getPostsByCategory(category) {
 module.exports = {
     createPost,
     getAllPosts,
+    getPostById,
     updatePost,
     deletePost,
     getPostsByCategory

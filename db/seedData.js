@@ -44,7 +44,8 @@ async function createTables() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       location VARCHAR(255),
       category VARCHAR(255),
-      "isActive" BOOLEAN DEFAULT false
+      "isActive" BOOLEAN DEFAULT false,
+      "userId" INTEGER REFERENCES users(id)
     );
     
       `);
@@ -142,7 +143,6 @@ async function rebuildDB() {
     await createTables()
     await createInitialUsers()
     await createInitialposts()
-
   } catch (error) {
     console.log("Error during rebuildDB")
     throw error

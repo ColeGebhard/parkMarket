@@ -40,6 +40,22 @@ async function createUser({ email, username, password, isAdmin }) {
     }
 }
 
+async function getAllUsers() {
+    try{
+        const { rows } = await client.query(`
+        SELECT *
+        FROM users`);
+
+        if (rows.length === 0) {
+            throw new Error('No users found')
+        }
+
+        return rows
+    } catch (error) {
+        throw new Error('Cannot get all users')
+    }
+}
+
 async function getUserById(id) {
     try {
         const { rows } = await client.query(`
@@ -62,25 +78,22 @@ async function getUserById(id) {
 
 async function getUserByUsername(username) {
     try {
-        const { rows } = await client.query(`
+      const { rows } = await client.query(`
         SELECT * 
         FROM users
         WHERE username=$1
       `, [username]);
+  
+      const user = rows.length ? rows[0] : null;
 
-        if (rows.length === 0) {
-            throw new Error(`No user found with username: ${username}`);
-        }
-
-        const user = rows[0];
-        delete user.password;
-        return user;
+      return user;
     } catch (error) {
-        throw new Error('Cannot get user by Username');
+      throw new Error('Cannot get user by Username');
     }
-}
+  }
+  
 
-async function getUserByEmail(username) {
+async function getUserByEmail(email) {
     try {
         const { rows } = await client.query(`
         SELECT * 
@@ -185,6 +198,7 @@ async function deleteUser(id) {
 
 module.exports = {
     createUser,
+    getAllUsers,
     getUserById,
     getUserByUsername,
     getUserByEmail,

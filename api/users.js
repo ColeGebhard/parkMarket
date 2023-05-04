@@ -1,153 +1,246 @@
 const express = require("express");
 const usersRouter = express.Router();
+const { compare } = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = process.env;
 
+const {
+    createUser,
+    getUserByUsername,
+    getAllUsers,
+    getUserById,
+    getUserByEmail,
+    updateUser,
+    deleteUser
+} = require('../db/users');
+
 usersRouter.get('/health', async (req, res, next) => {
-  res.send({message: "All is well."});
-  next();
+    res.send({ message: "All is well." });
+    next();
+});
+
+usersRouter.get('/', async (req, res, next) => {
+    try {
+        const { skip = 0, limit = 10 } = req.query; // Set default values for skip and limit if they're not provided
+        const users = await getAllUsers(parseInt(skip), parseInt(limit));
+        if (!users || users.length === 0) {
+            res.status(404).json({
+                error: 'Users not found',
+                data: {},
+            });
+        } else {
+            res.json(users);
+        }
+    } catch (error) {
+        next(error);
+    }
+});
+
+
+usersRouter.get('/:id', async (req, res, next) => {
+    try {
+        const id = req.params.id;
+        const user = await getUserById(id)
+
+        if (!user) {
+            res.status(404).json({
+                error: `User with id:${id} not found`,
+                data: {}
+            });
+        } else {
+            res.json({
+                data: {
+                    // id: user.id,
+                    // email: user.email,
+                    // username: user.username,
+                    // isAdmin: user.isAdmin
+                    user
+                }
+            });
+        }
+    } catch (error) {
+        next(error)
+    }
+
+});
+
+usersRouter.get('/username/:username', async (req, res, next) => {
+    try {
+        const username = req.params.username;
+        const user = await getUserByUsername(username)
+
+        if (!user) {
+            res.status(404).json({
+                error: `User with username:${username} not found`,
+                data: {}
+            });
+        } else {
+            res.json({
+                data: {
+                    // id: user.id,
+                    // email: user.email,
+                    // username: user.username,
+                    // password: user.password,
+                    // isAdmin: user.isAdmin
+                    user
+                }
+            });
+        }
+    } catch (error) {
+        next(error)
+    }
+
+});
+
+usersRouter.get('/email/:email', async (req, res, next) => {
+    try {
+        const email = req.params.email;
+        const user = await getUserByEmail(email)
+
+        if (!user) {
+            res.status(404).json({
+                error: `User with email:${email} not found`,
+                data: {}
+            });
+        } else {
+            res.json({
+                data: {
+                    id: user.id,
+                    email: user.email,
+                    username: user.username,
+                    isAdmin: user.isAdmin
+                }
+            });
+        }
+    } catch (error) {
+        next(error)
+    }
+
 });
 
 usersRouter.post("/register", async (req, res, next) => {
-  try {
-    const { username, password, firstName, lastName, email, isAdmin } = req.body;
+    try {
+        const { email, username, password, isAdmin } = req.body;
 
-    const queriedUser = await getUserByUsername(username);
-    
-    if (queriedUser) {
-      res.status(401);
-      next({
-        success: false,
-        token: null,
-        user: {},
-        message: `User Exists: Username ${queriedUser.username} is already taken.`
+        const queriedUser = await getUserByUsername(username);
 
-      }
-      )
-    } else if (password.length < 8) {
-        res.status(401);
-        next({
-          success: false,
-          token: null,
-          user: {},
-          message: `This password is too short. A longer password is required.` 
-
+        if (queriedUser) {
+            res.status(401);
+            next({
+                success: false,
+                token: null,
+                user: {},
+                message: `User Exists: Username ${queriedUser.username} is already taken.`
+            });
+        } else if (password.length < 8) {
+            res.status(401);
+            next({
+                success: false,
+                token: null,
+                user: {},
+                message: `This password is too short. A longer password is required.`
+            });
+        } else {
+            const user = await createUser({
+                email,
+                username,
+                password,
+                isAdmin: isAdmin || false // Set isAdmin to false if not provided in the request body
+            });
+            if (!user) {
+                res.status(401);
+                next({
+                    success: false,
+                    token: null,
+                    user: {},
+                    message: `We encountered a problem registering your account. Please try again`
+                });
+            } else {
+                const token = jwt.sign(
+                    { id: user.id, username: user.username, admin: user.isAdmin },
+                    JWT_SECRET,
+                    { expiresIn: "1w" }
+                );
+                res.json({
+                    data: {
+                        success: true,
+                        token: token,
+                        user: {
+                            id: user.id,
+                            email: user.email,
+                            username: user.username,
+                            isAdmin: user.isAdmin
+                        },
+                        message: `Congratulations, ${user.username}, you have successfully registered!`
+                    }
+                });
+            }
         }
-      )
-    } else {
-      const user = await createUser({
-        username, password, firstName, lastName, email, isAdmin
-      });
-      if (!user) {
-        res.status(401);
-        next({
-          success: false,
-          token: null,
-          user: {},
-          message: `We encountered a problem registering your account. Please try again`
-
-        }
-        );
-      } else {
-        const token = jwt.sign(
-          { id: user.id, username: user.username, admin: user.isAdmin },
-          JWT_SECRET,
-          {expiresIn: "1w" }
-        ); 
-        res.json({data: {
-          success: true,
-          token: token,
-          user: {
-            id: user.id,
-            username: username,
-            admin: isAdmin
-          },
-          message: `Congratulations, ${username}, you have successfully registered!`
-
-        }});
-      }
+    } catch (e) {
+        next(e);
     }
-  } catch (e) {
-    next(e);
-  }
-})
+});
 
-// // usersRouter.get("/:username", async (req, res, next) => {
-// //   const { username } = req.params;
+usersRouter.post("/login", async (req, res, next) => {
+    const { username, password } = req.body;
 
-// //   try {
-// //       const checkUser = await getUserByUsername(username)
+    try {
+        const user = await getUserByUsername(username);
 
-// //       console.log(checkUser)
-// //   } catch(error) {
+        console.log(user)
 
-// //   }
-// // })
+        if (!user) {
+            throw Error("Invalid username or password");
+        }
 
-// usersRouter.post("/login", async (req, res, next) => {
-//   const { username, password } = req.body;
-//   if (!username || !password) {
-//     next({
-//       success: false,
-//       token: null,
-//       user: {},
-//       message: `Missing credentials. Please supply both a username and a password.` 
+        const passwordMatch = await compare(password, user.password);
 
-//     });
-//   }
-//   try {
-//     const user = await getUser({ username, password });
-//     if (!user) {
-//       next({
-//         success: false,
-//         token: null,
-//         user: {},
-//         message: `Username or password is incorrect. Please try again` 
-//       });
-//     } else {
-//       const token = jwt.sign(
-//         { id: user.id, username: user.username },
-//         JWT_SECRET,
-//         { expiresIn: "1w" }
-//       );
-//       res.json({data: {
-//         success: true,
-//         token: token,
-//         user: {
-//           id: user.id,
-//           username: user.username
-//         },
-//         message: `You're logged in!` 
-//       }})
-//     }
-//   } catch (e) {
-//     next(e);
-//   }
-// });
+        if (!passwordMatch) {
+            throw Error("Invalid username or password");
+        }
 
-// usersRouter.get('/me', async (req, res) => {
-//   try {
-//     if (req.headers.authorization) {
-//       const userToken = req.headers.authorization
-//       const token = userToken.split(' ');
-//       const data = jwt.verify(token[1], JWT_SECRET);
-//       const { id, username, isAdmin } = data;
-//       res.send({ id, username, isAdmin });
-//     } else {
-//       res.status(401).send({
-//         error: "failed to getme",
-//         message: "You must be logged in to perform this action",
-//         name: "Please log in."
-//       });
-//     }
-//   } catch (error) {
-//     res.status(401).send({
-//       error: "failed to getme",
-//       message: "You must be logged in to perform this action",
-//       name: "Please log in."
-//     });
-//   }
-// });
+        const token = jwt.sign({ id: user.id }, JWT_SECRET);
 
+        res.json({
+            message: "Logged in successfully",
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                // Add any other user data you want to send back to the client here
+            },
+        });
+    } catch (e) {
+        next(e);
+    }
+});
+
+usersRouter.put("/:id", async (req, res, next) => {
+    const { id } = req.params;
+    const updates = req.body;
+
+    try {
+        const updatedUser = await updateUser(id, updates);
+        res.json({ message: "User updated successfully", user: updatedUser });
+    } catch (e) {
+        next(e);
+    }
+});
+
+usersRouter.delete('/:id', async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const deletedUser = await deleteUser(id);
+        res.json({
+            data: {
+                message: `User with id ${id} has been deleted`,
+                user: deletedUser
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
 
 module.exports = usersRouter
