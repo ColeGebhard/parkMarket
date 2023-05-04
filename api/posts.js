@@ -3,7 +3,8 @@ const postsRouter = express.Router();
 
 const {
     getAllPosts,
-    getPostById
+    getPostById,
+    getPostsByCategoryId
 } = require('../db/posts');
 const { post } = require('../app');
 const id = require('faker/lib/locales/id_ID');
@@ -58,5 +59,28 @@ postsRouter.get('/:id', async (req, res, next) => {
         });
     }
 });
+
+postsRouter.get('/category/:categoryId', async (req, res, next) => {
+    try {
+        const id = req.params.id
+        const posts = await getPostsByCategoryId(id)
+
+        if (!posts) {
+            res.status(404).json({
+                error: `No posts found with ID:${id}`,
+                data: {}
+            })
+        } else {
+            res.status(200).json(posts);
+        }
+    } catch (error) {
+        res.status(500).json({
+            error: 'Failed to retrieve posts',
+            data: {},
+        });
+    }
+});
+
+
 
 module.exports = postsRouter

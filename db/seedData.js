@@ -1,5 +1,7 @@
-const {createUser} = require('./users');
-const {createPost} = require('./posts')
+const { createUser } = require('./users');
+const { createPost } = require('./posts');
+const { createCategory } = require('./category')
+const { createContactType } = require('./contact')
 
 const client = require("./client")
 
@@ -9,6 +11,8 @@ async function dropTables() {
 
     await client.query(`
       DROP TABLE IF EXISTS posts;
+      DROP TABLE IF EXISTS category;
+      DROP TABLE IF EXISTS contact_type;
       DROP TABLE IF EXISTS users;
     `);
 
@@ -32,18 +36,30 @@ async function createTables() {
         "isAdmin" BOOLEAN DEFAULT false
     );
 
+    CREATE TABLE contact_type (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL
+    );
+
+    CREATE TABLE category (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL
+    );
+
     CREATE TABLE posts (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       description VARCHAR(255) NOT NULL,
       price INTEGER,
       image BYTEA NOT NULL,
+      "contactType" INTEGER REFERENCES contact_type(id),
       contact VARCHAR(255) NOT NULL,
+      "contactTypeBackup" INTEGER REFERENCES contact_type(id),
       contact_backup VARCHAR(255),
       report_count INTEGER,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       location VARCHAR(255),
-      category VARCHAR(255),
+      "categoryId" INTEGER REFERENCES category(id),
       "isActive" BOOLEAN DEFAULT false,
       "userId" INTEGER REFERENCES users(id)
     );
@@ -61,9 +77,9 @@ async function createInitialUsers() {
   console.log("Starting to create users...");
   try {
     const usersToCreate = [
-      { email:"cole@gmail.com", username: "albert", password: "Bertie99", isAdmin: true },
-      { email:"colee@gmail.com", username: "sandra", password: "Sandra123!", isAdmin: false },
-      { email:"coleee@gmail.com", username: "glamgal", password: "Glamgal123!", isAdmin: false }
+      { email: "cole@gmail.com", username: "albert", password: "Bertie99", isAdmin: true },
+      { email: "colee@gmail.com", username: "sandra", password: "Sandra123!", isAdmin: false },
+      { email: "coleee@gmail.com", username: "glamgal", password: "Glamgal123!", isAdmin: false }
     ];
 
     const createdUsers = [];
@@ -82,7 +98,59 @@ async function createInitialUsers() {
   }
 }
 
-async function createInitialposts() {
+async function createInitialContactType() {
+  console.log("Starting to create contact types...");
+  try {
+    const contactTypesToCreate = [
+      { name: "Email" },
+      { name: "Instagram" },
+      { name: "Phone" },
+    ];
+
+    const createdContactTypes = [];
+    for (const contactType of contactTypesToCreate) {
+      const createdType = await createContactType(contactType);
+      createdContactTypes.push(createdType);
+    }
+
+    console.log("Contact types created:");
+    console.log(createdContactTypes);
+    console.log("Finished creating contact types!");
+
+  } catch (error) {
+    console.error("Error creating contact types!");
+    throw error;
+  }
+}
+
+
+async function createInitialCategories() {
+  console.log("Starting to create categories...");
+  try {
+    const categoriesToCreate = [
+      { name: "Electronics" },
+      { name: "Books" },
+      { name: "Clothing" },
+    ];
+
+    const createdCategories = [];
+    for (const category of categoriesToCreate) {
+      const createdCategory = await createCategory(category);
+      createdCategories.push(createdCategory);
+    }
+
+    console.log("Categories created:");
+    console.log(createdCategories);
+    console.log("Finished creating categories!");
+
+  } catch (error) {
+    console.error("Error creating categories!");
+    throw error;
+  }
+}
+
+
+async function createInitialPosts() {
   console.log("Starting to create posts...");
   try {
     const postsToCreate = [
@@ -102,10 +170,12 @@ async function createInitialposts() {
         description: "Top-of-the-line ski boots in great condition.",
         price: 150,
         image: "https://example.com/skiboots.jpg",
+        contactType: 1,
         contact: "jane@example.com",
         contact_backup: null,
         report_count: 0,
         created_at: new Date(),
+        categoryId: 1,
         isActive: true,
       },
       {
@@ -142,7 +212,9 @@ async function rebuildDB() {
     await dropTables()
     await createTables()
     await createInitialUsers()
-    await createInitialposts()
+    await createInitialContactType()
+    await createInitialCategories()
+    await createInitialPosts()
   } catch (error) {
     console.log("Error during rebuildDB")
     throw error

@@ -5,12 +5,14 @@ async function createPost({
     description,
     price,
     image,
+    contactType,
     contact,
+    contactTypeBackup,
     contact_backup,
     report_count,
     created_at,
     location,
-    category,
+    categoryId,
     isActive
 }) {
     try {
@@ -20,27 +22,31 @@ async function createPost({
         description, 
         price,
         image,
+        "contactType",
         contact, 
+        "contactTypeBackup",
         contact_backup, 
         report_count,
         created_at,
         location,
-        category,
+        "categoryId",
         "isActive"
       )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *;
       `, [
             name,
             description,
             price,
             image,
+            contactType,
             contact,
+            contactTypeBackup,
             contact_backup,
             report_count,
             created_at,
             location,
-            category,
+            categoryId,
             isActive,
         ])
         return listing;
@@ -52,8 +58,11 @@ async function createPost({
 async function getAllPosts() {
     try {
         const { rows } = await client.query(`
-        SELECT *
-        FROM posts;
+        SELECT posts.*, category.name AS category_name, contact_type.name AS contact_type_name
+        FROM posts
+        LEFT JOIN category ON posts."categoryId" = category.id
+        LEFT JOIN contact_type ON posts."contactType" = contact_type.id
+        ORDER BY posts.id
       `);
 
         return rows;
@@ -61,6 +70,8 @@ async function getAllPosts() {
         throw new Error('Failed to get all posts');
     }
 }
+
+
 
 async function getPostById(id) {
     try {
@@ -100,16 +111,22 @@ async function deletePost(id) {
     return listing;
 }
 
-async function getPostsByCategory(category) {
+async function getPostsByCategoryId(categoryId) {
     try {
-        const { rows } = await client.query(`
-        SELECT * FROM posts WHERE category = $1 AND "isActive" = true;
-      `, [category]);
-        return rows;
+      const { rows } = await client.query(`
+        SELECT * FROM posts WHERE "categoryId" = $1 AND "isActive" = true;
+      `, [categoryId]);
+  
+      if (rows.length === 0) {
+        throw new Error(`No posts found for category with ID ${categoryId}`);
+      }
+  
+      return rows;
     } catch (error) {
-        throw Error(error);
+      throw new Error(`Failed to get posts for category with ID ${categoryId}: ${error.message}`);
     }
-}
+  }
+  
 
 
 module.exports = {
@@ -118,5 +135,5 @@ module.exports = {
     getPostById,
     updatePost,
     deletePost,
-    getPostsByCategory
+    getPostsByCategoryId
 };
