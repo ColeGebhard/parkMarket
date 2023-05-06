@@ -60,12 +60,11 @@ async function createTables() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       location VARCHAR(255),
       "categoryId" INTEGER REFERENCES category(id),
-      "isActive" BOOLEAN DEFAULT false,
-      "userId" INTEGER REFERENCES users(id)
+      "isActive" BOOLEAN DEFAULT false
     );
     
       `);
-
+      // "userId" INTEGER REFERENCES users(id)
     console.log("Finished building tables!");
   } catch (error) {
     console.error("Error building tables!");
