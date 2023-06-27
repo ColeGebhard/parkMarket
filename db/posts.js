@@ -1,77 +1,44 @@
 const client = require('./client')
 
-async function createPost({
-  name,
-  description,
-  price,
-  image,
-  contactType,
-  contact,
-  contactTypeBackup,
-  contact_backup,
-  report_count,
-  created_at,
-  location,
-  categoryId,
-  isActive,
-}) {
+async function createPost({ title, body, user_id, date_created, image }) 
+  {
   try {
-    const { rows: [listing] } = await client.query(`
-      INSERT INTO posts(
-        name, 
-        description, 
-        price,
-        image,
-        "contactType",
-        contact, 
-        "contactTypeBackup",
-        contact_backup, 
-        report_count,
-        created_at,
-        location,
-        "categoryId",
-        "isActive"
-      )
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    // Check if image data is in the correct format
+    if (!image.startsWith('data:image/')) {
+      throw new Error('Invalid image data format')
+    }
+    
+    // Extract image format and base64 data
+    const imageParts = image.split(';base64,')
+    const imageType = imageParts[0].split('data:image/')[1]
+    const imageData = Buffer.from(imageParts[1], 'base64')
+    
+    const { rows: [post] } = await client.query(`
+      INSERT INTO posts (title, body, user_id, date_created, image)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
-      `, [
-      name,
-      description,
-      price,
-      image,
-      contactType,
-      contact,
-      contactTypeBackup,
-      contact_backup,
-      report_count,
-      created_at,
-      location,
-      categoryId,
-      isActive
-    ]);
-    return listing;
+    `, [title, body, user_id, date_created, imageData]);
+
+    console.log(post)
+
+    return post;
   } catch (error) {
-    throw Error(error)
+    throw new Error(error)
   }
 }
 
 
-
-
-
 async function getAllPosts() {
   try {
-    const { rows } = await client.query(`
-        SELECT posts.*, category.name AS category_name, contact_type.name AS contact_type_name
-        FROM posts
-        LEFT JOIN category ON posts."categoryId" = category.id
-        LEFT JOIN contact_type ON posts."contactType" = contact_type.id
-        ORDER BY posts.id
-      `);
-
+    const query = `
+      SELECT *
+      FROM posts
+      ORDER BY date_created DESC;
+    `;
+    const { rows } = await client.query(query);
     return rows;
   } catch (error) {
-    throw new Error('Failed to get all posts');
+    throw new Error('Failed to retrieve posts');
   }
 }
 
@@ -82,7 +49,7 @@ async function getPostById(id) {
     const { rows } = await client.query(`
         SELECT * 
         FROM posts
-        WHERE id=$1 AND "isActive" = true;
+        WHERE id=$1;
         `, [id])
 
     if (!rows) {
@@ -106,7 +73,7 @@ async function updatePost(id, updates, userId, isAdmin) {
     throw new Error('Unauthorized');
   }
 
-  if (userId !== post.userId && !isAdmin) {
+  if (userId !== post.user_id && !isAdmin) {
     throw new Error('Forbidden');
   }
 
@@ -125,17 +92,17 @@ async function updatePost(id, updates, userId, isAdmin) {
   query += ` WHERE id=$${index} RETURNING *;`;
   params.push(id);
 
-  const { rows: [listing] } = await client.query(query, params);
+  const { rows: [updatedPost] } = await client.query(query, params);
 
-  return listing;
+  return updatedPost;
 }
 
 async function deletePost(id, userId, isAdmin) {
-  const { rows: [listing] } = await client.query(`
-    SELECT "userId" FROM posts WHERE id=$1
+  const { rows: [post] } = await client.query(`
+    SELECT user_id FROM posts WHERE id=$1
   `, [id]);
 
-  if (listing.user_id !== userId && !isAdmin) {
+  if (post.user_id !== userId && !isAdmin) {
     throw new Error('Only the post owner or an administrator can delete this post.');
   }
 
@@ -148,27 +115,12 @@ async function deletePost(id, userId, isAdmin) {
   return deletedPost;
 }
 
-async function getPostsByCategoryId(categoryId) {
-  try {
-    const { rows } = await client.query(`
-        SELECT * FROM posts WHERE "categoryId" = $1 AND "isActive" = true;
-      `, [categoryId]);
 
-    if (rows.length === 0) {
-      throw new Error(`No posts found for category with ID ${categoryId}`);
-    }
-
-    return rows;
-  } catch (error) {
-    throw new Error(`Failed to get posts for category with ID ${categoryId}: ${error.message}`);
-  }
-}
 
 module.exports = {
   createPost,
   getAllPosts,
   getPostById,
   updatePost,
-  deletePost,
-  getPostsByCategoryId
+  deletePost
 };

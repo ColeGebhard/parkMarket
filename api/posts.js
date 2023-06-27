@@ -4,7 +4,6 @@ const postsRouter = express.Router();
 const {
     getAllPosts,
     getPostById,
-    getPostsByCategoryId,
     deletePost,
     updatePost,
     createPost
@@ -24,6 +23,14 @@ postsRouter.get('/', async (req, res, next) => {
     try {
         const posts = await getAllPosts();
 
+        // Convert image data to base64 string
+        posts.forEach(post => {
+            if (post.image && post.image.data) {
+                const base64Image = Buffer.from(post.image.data).toString('base64');
+                post.image = `data:${post.image.contentType};base64,${base64Image}`;
+            }
+        });
+
         if (posts.length === 0) {
             res.status(404).json({
                 error: 'No posts found',
@@ -33,6 +40,7 @@ postsRouter.get('/', async (req, res, next) => {
             res.status(200).json(posts);
         }
     } catch (error) {
+        console.log(error);
         res.status(500).json({
             error: 'Failed to retrieve posts',
             data: {},
@@ -61,76 +69,77 @@ postsRouter.get('/:id', async (req, res, next) => {
     }
 });
 
-postsRouter.get('/category/:categoryId', async (req, res, next) => {
-    try {
-        const id = req.params.id
-        const posts = await getPostsByCategoryId(id)
+// postsRouter.get('/category/:categoryId', async (req, res, next) => {
+//     try {
+//         const id = req.params.id
+//         const posts = await getPostsByCategoryId(id)
 
-        if (!posts) {
-            res.status(404).json({
-                error: `No posts found with ID:${id}`,
-                data: {}
-            })
-        } else {
-            res.status(200).json(posts);
-        }
-    } catch (error) {
-        res.status(500).json({
-            error: 'Failed to retrieve posts',
-            data: {},
+//         if (!posts) {
+//             res.status(404).json({
+//                 error: `No posts found with ID:${id}`,
+//                 data: {}
+//             })
+//         } else {
+//             res.status(200).json(posts);
+//         }
+//     } catch (error) {
+//         res.status(500).json({
+//             error: 'Failed to retrieve posts',
+//             data: {},
+//         });
+//     }
+// });
+
+postsRouter.post("/", async (req, res, next) => {
+    const {
+        title,
+        body,
+        date_created,
+        image
+    } = req.body;
+
+    let userId = null;
+    if (req.user && req.user.id) {
+        userId = req.user.id;
+    }
+
+    if (!title) {
+        return res.status(400).json({ error: 'Title field is required' });
+    }
+
+    if (!body) {
+        return res.status(400).json({ error: 'Body field is required' });
+    }
+
+    if (!date_created) {
+        return res.status(400).json({ error: 'Date Created field is required' });
+    }
+
+    // if (!image) {
+    //   return res.status(400).json({ error: 'Image field is required' });
+    // }
+
+    try {
+        const createdPost = await createPost({
+            title,
+            body,
+            userId,
+            dateCreated: date_created,
+            image
         });
+
+        res.json({
+            data: {
+                success: true,
+                createdPost
+            }
+        });
+    } catch (error) {
+        next(error);
     }
 });
 
-postsRouter.post("/", async (req, res, next) => {
-    const { 
-      name,
-      description,
-      price,
-      image,
-      contactType,
-      contact,
-      contactTypeBackup,
-      contact_backup,
-      report_count,
-      created_at,
-      location,
-      categoryId,
-      isActive
-    } = req.body;
-  
-    if (!name || !description || !price || !image || !contactType || !contact){
-      return res.status(400).json({ error: 'Missing or invalid required fields' });
-    }
-  
-    try{
-      const createdPost = await createPost({
-        name,
-        description,
-        price,
-        image,
-        contactType,
-        contact,
-        contactTypeBackup,
-        contact_backup,
-        report_count,
-        created_at,
-        location,
-        categoryId,
-        isActive
-      })
-  
-      res.json({
-        data: {
-          success: true,
-          createdPost
-        }
-      })
-    } catch (e) {
-      next(e)
-    }
-  })
-  
+
 
 
 
@@ -187,5 +196,7 @@ postsRouter.delete('/:id', async (req, res, next) => {
         next(error);
     }
 });
+
+
 
 module.exports = postsRouter
